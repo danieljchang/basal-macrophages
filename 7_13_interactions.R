@@ -1,3 +1,5 @@
+# Test to see if we can do this again with different types of cells and see if results are different. 
+
 library(nichenetr) # Please update to v2.0.4
 library(Seurat)
 library(SeuratObject)
@@ -20,7 +22,7 @@ ligand_target_matrix <- readRDS("./data/ligand_target_matrix_nsga2r_final_mouse.
 weighted_networks <- readRDS("./data/weighted_networks_nsga2r_final_mouse.rds")
 
 # Getting the seurat object that only consists of the cells that we are focused on.
-basal_macrophages <- subset(seuratObj, subset = cluster1 %in% c("Mammary epithelial cells-Basal", "Monocytes-macrophages"))
+basal_macrophages <- subset(seuratObj, subset = cluster1 %in% c("7", "13"))
 
 # Normalize the data, not sure if we need to normalize the data.
 # But in most cases it will show a better visualization of the data, and less bias downstream since the analysis of nichenet uses normalized data.  
@@ -29,7 +31,7 @@ basal_macrophages <- NormalizeData(basal_macrophages, assay = "RNA")
 # First, fits a line to the relationship of log(variance) and log(mean) using local polynomial regression. 
 # Then standardizes the feature values using the observed mean and expected variance. Feature variance is then calculated on the standardized values after clipping to a maximum.
 # nFeatures determines how many features we want to look at, could potentially be too many or too few, but can cause overfitting if too large.
-basal_macrophages <- FindVariableFeatures(basal_macrophages, assay = "RNA", selection.method = "vst", nfeatures = 1000)
+basal_macrophages <- FindVariableFeatures(basal_macrophages, assay = "RNA", selection.method = "vst", nfeatures = 500)
 
 
 #Need this because get_expressed_genes uses the Idents column to determine the expression of a given cell type.
@@ -39,10 +41,10 @@ Idents(seuratObj) <- "cluster1"
 # because these are both different types of cells does it matter which is which? Can test by switching later.
 # Need to find the expressed genes for each cell type.
 # basal expressed genes  = 8610
-expressed_genes_basal <- get_expressed_genes("Mammary epithelial cells-Basal", seuratObj, pct = 0.05)
+expressed_genes_basal <- get_expressed_genes("7", seuratObj, pct = 0.05)
 
 # macrophages = 6364 
-expressed_genes_macrophages <- get_expressed_genes("Monocytes-macrophages", seuratObj, pct = 0.05)
+expressed_genes_macrophages <- get_expressed_genes("13", seuratObj, pct = 0.05)
 
 all_receptors <- unique(lr_network$to)  
 # Length 315
@@ -64,8 +66,8 @@ potential_ligands_focused <- intersect(potential_ligands, expressed_genes_sender
 # 8731
 de_results <- FindMarkers(
   basal_macrophages,
-  ident.1 = "Mammary epithelial cells-Basal",
-  ident.2 = "Monocytes-macrophages",
+  ident.1 = "7",
+  ident.2 = "13",
   group.by = "cluster1",
   assay = "RNA",
   slot = "data",
@@ -122,45 +124,3 @@ vis_ligand_aupr <- ligand_activities %>% filter(test_ligand %in% best_upstream_l
     theme(axis.text.x.top = element_blank()))  
 
 
-active_ligand_target_links_df <- best_upstream_ligands %>%
-  lapply(get_weighted_ligand_target_links,
-         geneset = geneset_oi,
-         ligand_target_matrix = ligand_target_matrix,
-         n = 100) %>%
-  bind_rows() %>% drop_na()
-
-active_ligand_target_links <- prepare_ligand_target_visualization(
-  ligand_target_df = active_ligand_target_links_df,
-  ligand_target_matrix = ligand_target_matrix,
-  cutoff = 0.33) 
-
-
-order_ligands <- intersect(best_upstream_ligands, colnames(active_ligand_target_links)) %>% rev()
-order_targets <- active_ligand_target_links_df$target %>% unique() %>% intersect(rownames(active_ligand_target_links))
-
-vis_ligand_target <- t(active_ligand_target_links[order_targets,order_ligands])
-
-make_heatmap_ggplot(vis_ligand_target, "Prioritized ligands", "Predicted target genes",
-                    color = "purple", legend_title = "Regulatory potential") +
-  scale_fill_gradient2(low = "whitesmoke",  high = "purple")
-
-ligand_receptor_links_df <- get_weighted_ligand_receptor_links(
-  best_upstream_ligands, expressed_receptors_basal,
-  lr_network, weighted_networks$lr_sig) 
-
-vis_ligand_receptor_network <- prepare_ligand_receptor_visualization(
-  ligand_receptor_links_df,
-  best_upstream_ligands,
-  order_hclust = "both") 
-
-(make_heatmap_ggplot(t(vis_ligand_receptor_network), 
-                     y_name = "Ligands", x_name = "Receptors",  
-                     color = "mediumvioletred", legend_title = "Prior interaction potential"))
-
-sender_celltypes <- c("Monocytes-macrophages", "Mammary epithelial cells-Basal")
-p_dotplot <- DotPlot(subset(seuratObj, cluster1 %in% sender_celltypes),
-                     features = rev(best_upstream_ligands), cols = "RdYlBu") + 
-  coord_flip() +
-  scale_y_discrete(position = "right")
-
-p_dotplot

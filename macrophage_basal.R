@@ -39,10 +39,10 @@ Idents(seuratObj) <- "cluster1"
 # because these are both different types of cells does it matter which is which? Can test by switching later.
 # Need to find the expressed genes for each cell type.
 # basal expressed genes  = 8610
-expressed_genes_basal <- get_expressed_genes("Mammary epithelial cells-Basal", seuratObj, pct = 0.05)
+expressed_genes_basal <- get_expressed_genes("Monocytes-macrophages", seuratObj, pct = 0.05)
 
 # macrophages = 6364 
-expressed_genes_macrophages <- get_expressed_genes("Monocytes-macrophages", seuratObj, pct = 0.05)
+expressed_genes_macrophages <- get_expressed_genes("Mammary epithelial cells-Basal", seuratObj, pct = 0.05)
 
 all_receptors <- unique(lr_network$to)  
 # Length 315
@@ -64,8 +64,8 @@ potential_ligands_focused <- intersect(potential_ligands, expressed_genes_sender
 # 8731
 de_results <- FindMarkers(
   basal_macrophages,
-  ident.1 = "Mammary epithelial cells-Basal",
-  ident.2 = "Monocytes-macrophages",
+  ident.1 = "Monocytes-macrophages",
+  ident.2 = "Mammary epithelial cells-Basal",
   group.by = "cluster1",
   assay = "RNA",
   slot = "data",
@@ -157,7 +157,7 @@ vis_ligand_receptor_network <- prepare_ligand_receptor_visualization(
                      y_name = "Ligands", x_name = "Receptors",  
                      color = "mediumvioletred", legend_title = "Prior interaction potential"))
 
-sender_celltypes <- c("Monocytes-macrophages", "Mammary epithelial cells-Basal")
+sender_celltypes <- c("Mammary epithelial cells-Basal", "Monocytes-macrophages")
 p_dotplot <- DotPlot(subset(seuratObj, cluster1 %in% sender_celltypes),
                      features = rev(best_upstream_ligands), cols = "RdYlBu") + 
   coord_flip() +
